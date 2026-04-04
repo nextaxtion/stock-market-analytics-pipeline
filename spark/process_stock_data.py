@@ -68,8 +68,9 @@ def build_spark() -> SparkSession:
     return (
         SparkSession.builder
         .appName("StockMarketProcessing")
-        .config("spark.driver.memory", "4g")
-        .config("spark.sql.shuffle.partitions", "8")
+        .config("spark.driver.memory", "10g")
+        .config("spark.driver.maxResultSize", "4g")
+        .config("spark.sql.shuffle.partitions", "16")
         .config("spark.sql.adaptive.enabled", "true")
         .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
         .getOrCreate()
