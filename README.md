@@ -22,7 +22,7 @@ The interesting part isn't just the final charts — it's watching how trading v
 
 **Tile 2 (Categorical):** Average daily return by market category — shows which market segments have historically delivered better returns.
 
-[View live dashboard →](https://lookerstudio.google.com/reporting/f0377f25-7e63-48a4-bfe0-96c6ed4a9e84/page/6guuF)
+[View live dashboard →](https://lookerstudio.google.com/reporting/f0377f25-7e63-48a4-bfe0-96c6ed4a9e84)
 
 ---
 
