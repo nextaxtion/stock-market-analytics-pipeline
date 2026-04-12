@@ -1,0 +1,74 @@
+##############################################################################
+# docker-compose.yml — dbt Core service definition
+##############################################################################
+#
+# What is docker-compose?
+# -----------------------
+# docker-compose.yml describes HOW to run a Docker container (or multiple
+# containers). Instead of typing a long `docker run` command with volumes,
+# env vars, and flags, you define it once here and use short commands:
+#
+#   docker compose -f docker/docker-compose.yml build         # build image
+#   docker compose -f docker/docker-compose.yml run --rm dbt run    # dbt run
+#   docker compose -f docker/docker-compose.yml run --rm dbt test   # dbt test
+#   docker compose -f docker/docker-compose.yml run --rm dbt docs generate
+#
+# The --rm flag automatically removes the container after it exits (cleanup).
+#
+# Volume mounts explained:
+# ------------------------
+#   ./dbt:/dbt
+#     - Your local dbt/ folder is mounted into the container at /dbt
+#     - Changes to SQL files are immediately picked up — no rebuild needed
+#     - dbt writes build artifacts (target/, dbt_packages/) here too
+#
+#   ~/.config/gcloud:/root/.config/gcloud:ro
+#     - Mounts your local gcloud credentials into the container (read-only)
+#     - dbt-bigquery uses these for authentication
+#     - Only needed if using `method: oauth` in profiles.yml
+#     - If using a service account keyfile, mount the JSON file instead (see below)
+#
+#   ./dbt/profiles.yml:/root/.dbt/profiles.yml:ro
+#     - dbt looks for profiles.yml in ~/.dbt/ by default
+#     - This mount makes your project's profiles.yml available to dbt
+#     - IMPORTANT: profiles.yml contains credentials — NEVER commit it
+#       (it's in .gitignore; profiles.yml.example is the safe template)
+#
+##############################################################################
+
+services:
+  dbt:
+    build:
+      # Build the image from our Dockerfile
+      # Context = repository root so COPY dbt/ works correctly
+      context: ..
+      dockerfile: docker/Dockerfile
+
+    volumes:
+      # Mount the local dbt project directory (live edits, artifacts)
+      - ../dbt:/dbt
+
+      # Mount gcloud credentials (for oauth authentication)
+      # Comment this out if you're using a service account keyfile instead
+      - ~/.config/gcloud:/root/.config/gcloud:ro
+
+      # Make your profiles.yml available at the standard dbt location
+      - ../dbt/profiles.yml:/root/.dbt/profiles.yml:ro
+
+    environment:
+      # If using a service account JSON key file, set the path here.
+      # The file must be mounted as a volume too (add a volume entry above).
+      #
+      # Example (service account method):
+      #   GOOGLE_APPLICATION_CREDENTIALS: /secrets/service-account-key.json
+      # And add this volume:
+      #   - /path/to/your/key.json:/secrets/service-account-key.json:ro
+      #
+      # For Cloud Composer / CI, set GOOGLE_CREDENTIALS to the JSON string:
+      #   GOOGLE_CREDENTIALS: "${GOOGLE_CREDENTIALS}"
+
+      # dbt target to use (dev or prod, matching profiles.yml outputs)
+      DBT_TARGET: dev
+
+    # Default working directory inside the container (matches WORKDIR in Dockerfile)
+    working_dir: /dbt

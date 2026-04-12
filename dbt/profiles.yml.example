@@ -1,0 +1,58 @@
+##############################################################################
+# profiles.yml.example — dbt BigQuery connection template
+##############################################################################
+#
+# What is profiles.yml?
+# ---------------------
+# dbt needs to know HOW to connect to your data warehouse.
+# profiles.yml is that connection config. It contains credentials, so it
+# must NEVER be committed to git. This file is a safe example/template.
+#
+# To use this:
+#   cp dbt/profiles.yml.example dbt/profiles.yml
+#   # Then fill in your values
+#
+# The profile name (stock_market) must match the 'profile:' key in dbt_project.yml.
+#
+# BigQuery authentication methods:
+#   oauth              : Uses gcloud auth (your logged-in Google account)
+#   service-account    : Uses a JSON key file (recommended for automation/Docker)
+#   service-account-json: Same as above but JSON contents inline (for Composer env)
+#
+##############################################################################
+
+stock_market:
+  target: dev                        # Active target (dev or prod)
+
+  outputs:
+
+    # -------------------------------------------------------------------------
+    # dev: used during development and local testing
+    # -------------------------------------------------------------------------
+    dev:
+      type: bigquery
+      method: service-account        # Authenticate via JSON key file
+      project: dezoomcamp-486216     # GCP project ID
+      dataset: dezoomcampds          # BigQuery dataset (all models land here)
+      location: us-central1          # Must match the dataset's region
+      threads: 4                     # Number of parallel dbt model runs
+      timeout_seconds: 300           # Query timeout per model
+
+      # Path to your service account JSON key file
+      # Set this to the absolute path on your machine.
+      keyfile: /path/to/your/service-account-key.json
+
+    # -------------------------------------------------------------------------
+    # prod: for production runs (Cloud Composer / CI)
+    # -------------------------------------------------------------------------
+    prod:
+      type: bigquery
+      method: service-account-json   # Credentials passed as environment variable
+      project: dezoomcamp-486216
+      dataset: dezoomcampds
+      location: us-central1
+      threads: 8
+      timeout_seconds: 600
+
+      # In Cloud Composer: set GOOGLE_CREDENTIALS env variable with the JSON contents
+      keyfile_json: "{{ env_var('GOOGLE_CREDENTIALS') }}"

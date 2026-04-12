@@ -29,3 +29,18 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# dbt credentials (never commit)
+dbt/profiles.yml
+
+# Internal planning notes (README covers the project)
+PROJECT_BLUEPRINT.md
+
+# Raw data archive
+data/archive.zip
+
+# Logs
+logs/
+
+# dbt user file
+dbt/.user.yml

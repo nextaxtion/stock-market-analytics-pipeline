@@ -1,0 +1,72 @@
+##############################################################################
+# _sources.yml — declares raw BigQuery tables as dbt "sources"
+##############################################################################
+#
+# What are dbt sources?
+# ---------------------
+# Sources are the RAW tables that dbt did NOT create — they're loaded by
+# an external process (our load_to_bigquery.py script or Airflow task).
+# Declaring them here:
+#   1. Lets staging models reference them cleanly with {{ source(...) }}
+#      instead of hard-coded table names
+#   2. Enables dbt's "source freshness" checks (optional)
+#   3. Creates lineage documentation in dbt docs
+#
+# Usage in SQL: {{ source('stock_market_raw', 'raw_daily_prices') }}
+# dbt expands this to: `dezoomcamp-486216.dezoomcampds.raw_daily_prices`
+#
+##############################################################################
+
+version: 2
+
+sources:
+  - name: stock_market_raw
+    description: "Raw tables loaded by load_to_bigquery.py from GCS Parquet/CSV."
+    database: dezoomcamp-486216
+    schema: dezoomcampds
+
+    tables:
+      - name: raw_daily_prices
+        description: >
+          Enriched daily price data for 8049 stock/ETF tickers (1962–2020).
+          Loaded from Spark-processed Parquet on GCS.
+          Partitioned by trade_date (MONTH), clustered by symbol.
+        columns:
+          - name: symbol
+            description: Ticker symbol (e.g. AAPL, MSFT, SPY)
+          - name: trade_date
+            description: Trading date
+          - name: close
+            description: Closing price
+          - name: volume
+            description: Shares traded that day
+          - name: daily_return
+            description: "Percentage return from previous close: (close - prev_close) / prev_close"
+          - name: moving_avg_30
+            description: 30-day rolling average of the closing price (momentum indicator)
+          - name: moving_avg_60
+            description: 60-day rolling average of the closing price (trend indicator)
+          - name: volatility_30
+            description: 30-day rolling standard deviation of daily_return (risk measure)
+          - name: week52_high
+            description: Highest high over the past 252 trading days (~1 year)
+          - name: week52_low
+            description: Lowest low over the past 252 trading days (~1 year)
+          - name: market_category
+            description: "Human-readable market category (NASDAQ Global Select Market, NYSE, etc.)"
+
+      - name: raw_symbols_meta
+        description: >
+          Ticker metadata from symbols_valid_meta.csv.
+          Contains company names, exchanges, and category for all 8049 tickers.
+        columns:
+          - name: Symbol
+            description: Ticker symbol — primary key
+          - name: Security Name
+            description: Full company/fund name
+          - name: Market Category
+            description: "Raw market category code: Q, G, S, N"
+          - name: Listing Exchange
+            description: "Exchange code: Q (NASDAQ), A (NYSE American), N (NYSE), etc."
+          - name: ETF
+            description: Boolean — true if this is an ETF

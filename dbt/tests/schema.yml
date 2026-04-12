@@ -1,0 +1,208 @@
+##############################################################################
+# schema.yml — dbt Data Quality Tests
+##############################################################################
+#
+# What are dbt tests?
+# -------------------
+# dbt lets you define constraints on your tables as YAML, then run them with
+# `dbt test`. Each test compiles to a SQL query: if the query returns rows,
+# the test FAILS (rows = violations).
+#
+# Built-in test types:
+#   not_null      : Column must have no NULLs
+#   unique        : Column must have no duplicate values
+#   accepted_values: Column can only contain the listed values
+#   relationships : FK check — every value in col A must exist in another table
+#
+# Why this matters (rubric):
+#   Data quality tests prove that the pipeline output is trustworthy.
+#   A warehouse without tests is just a pile of untested SQL.
+#   Running `dbt test` in the Airflow DAG ensures bad data is caught
+#   before dashboards show incorrect numbers.
+#
+# Run with:
+#   dbt test                     # run all tests
+#   dbt test --select staging    # run only staging layer tests
+#   dbt test --select core       # run only core layer tests
+#
+##############################################################################
+
+version: 2
+
+models:
+
+  # --------------------------------------------------------------------------
+  # STAGING LAYER
+  # --------------------------------------------------------------------------
+
+  - name: stg_daily_prices
+    description: >
+      Cleaned daily price data for all tickers.
+      Null close prices and invalid symbols are filtered out in this layer.
+    columns:
+
+      - name: symbol
+        description: Ticker symbol (e.g. AAPL, MSFT, SPY)
+        tests:
+          - not_null:
+              config:
+                severity: error   # Pipeline fails if any symbol is null
+          # Note: symbol is NOT unique here — same symbol appears once per trading day.
+          # Uniqueness is on the (symbol, trade_date) pair (tested on fact table).
+
+      - name: trade_date
+        description: Date of the trading day
+        tests:
+          - not_null:
+              config:
+                severity: error
+
+      - name: close
+        description: Closing price for the day — must be positive
+        tests:
+          - not_null:
+              config:
+                severity: error
+
+      - name: market_category
+        description: Human-readable market category
+        tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - 'NASDAQ Global Select Market'
+                  - 'NASDAQ Global Market'
+                  - 'NASDAQ Capital Market'
+                  - 'NYSE'
+                  - 'NYSE American'
+                  - 'Other'
+              config:
+                severity: warn    # warn only — some tickers may have unlisted categories
+
+  - name: stg_symbols_meta
+    description: >
+      Cleaned ticker metadata. One row per ticker symbol.
+    columns:
+
+      - name: symbol
+        description: Ticker symbol — primary key of this table
+        tests:
+          - not_null
+          - unique:
+              config:
+                severity: error   # Uniqueness enforced after QUALIFY dedup
+
+      - name: market_category
+        description: Human-readable market category
+        tests:
+          - not_null
+
+  # --------------------------------------------------------------------------
+  # CORE LAYER (Star Schema)
+  # --------------------------------------------------------------------------
+
+  - name: dim_companies
+    description: >
+      Company dimension table. One row per ticker symbol.
+      Deduplicated using QUALIFY ROW_NUMBER() in the model.
+    columns:
+
+      - name: symbol
+        description: Ticker symbol — primary key
+        tests:
+          - not_null:
+              config:
+                severity: error
+          - unique:
+              config:
+                severity: error   # This MUST be unique — it's the PK of the dimension
+
+      - name: security_name
+        description: Full company/fund name
+        tests:
+          - not_null
+
+      - name: market_category
+        description: Human-readable market segment
+        tests:
+          - not_null
+
+  - name: fact_daily_prices
+    description: >
+      Daily price fact table. Partitioned by month, clustered by symbol.
+      28M rows spanning 1962–2020 for 8,049 tickers.
+    columns:
+
+      - name: symbol
+        description: Ticker symbol (FK → dim_companies.symbol)
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_companies')
+              field: symbol
+              config:
+                severity: warn    # warn: some tickers may be in prices but not meta
+
+      - name: trade_date
+        description: Trading date — part of composite PK (symbol + trade_date)
+        tests:
+          - not_null
+
+      - name: close
+        description: Closing price
+        tests:
+          - not_null
+
+      - name: volume
+        description: Shares traded — should be non-negative
+        tests:
+          - not_null
+
+  # --------------------------------------------------------------------------
+  # AGGREGATION LAYER
+  # --------------------------------------------------------------------------
+
+  - name: agg_sector_performance
+    description: >
+      Monthly performance aggregated by market category.
+      Powers the categorical distribution tile in Looker Studio.
+    columns:
+
+      - name: trade_month
+        description: First day of the month (e.g. 2019-01-01)
+        tests:
+          - not_null
+
+      - name: market_category
+        description: Market category name
+        tests:
+          - not_null
+
+      - name: ticker_count
+        description: Number of distinct tickers active this month in this category
+        tests:
+          - not_null
+
+  - name: agg_monthly_summary
+    description: >
+      Market-wide monthly summary. One row per month.
+      Powers the temporal trend tile in Looker Studio.
+    columns:
+
+      - name: trade_month
+        description: First day of the month — primary key of this table
+        tests:
+          - not_null
+          - unique:
+              config:
+                severity: error   # One row per month — must be unique
+
+      - name: avg_close
+        description: Average closing price across all tickers this month
+        tests:
+          - not_null
+
+      - name: total_volume
+        description: Total shares traded across all tickers this month
+        tests:
+          - not_null

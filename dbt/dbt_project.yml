@@ -1,0 +1,63 @@
+##############################################################################
+# dbt_project.yml — Main dbt configuration file
+##############################################################################
+#
+# What is this file?
+# ------------------
+# The "root config" for your dbt project. It tells dbt:
+#   - What the project is named (maps to profile name for credentials)
+#   - Where to find models, macros, tests, etc.
+#   - Default materialization strategy per folder (view vs table vs incremental)
+#
+# Materialization strategies:
+#   view        : dbt creates/replaces a SQL VIEW. Fast to build, slow to query
+#                 (the query runs fresh every time). Good for staging layers.
+#   table       : dbt runs CREATE OR REPLACE TABLE. Results are persisted —
+#                 fast to query. Good for core/aggregation layers.
+#   incremental : Only processes new rows since last run. Good for huge tables
+#                 that grow daily in production. Not used here (batch project).
+#
+##############################################################################
+
+name: 'stock_market'
+version: '1.0.0'
+config-version: 2
+
+# profile: must match a key in profiles.yml (credentials lookup)
+profile: 'stock_market'
+
+# Paths — standard dbt layout
+model-paths:    ["models"]
+analysis-paths: ["analyses"]
+test-paths:     ["tests"]
+seed-paths:     ["seeds"]
+macro-paths:    ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path:  "target"
+clean-targets: ["target", "dbt_packages"]
+
+##############################################################################
+# Model configuration by directory
+##############################################################################
+#
+# +materialized: sets the default for all models in that folder.
+#                Individual models can override this with {{ config(...) }}.
+#
+# +schema: optional — overrides the dataset name for that layer.
+#          We leave it unset so all models go into dezoomcampds.
+#
+
+models:
+  stock_market:
+    staging:
+      +materialized: view        # Staging = thin cleaning layer, views are fine
+      +schema: dezoomcampds
+
+    core:
+      +materialized: table       # Core = star schema, persisted for query perf
+      +schema: dezoomcampds
+
+    aggregations:
+      +materialized: table       # Aggregations = dashboard-ready, persisted
+      +schema: dezoomcampds
