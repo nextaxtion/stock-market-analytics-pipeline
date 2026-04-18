@@ -33,6 +33,13 @@ Thumbs.db
 # dbt credentials (never commit)
 dbt/profiles.yml
 
+# Terraform state — contains sensitive resource IDs, never commit
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/*.tfvars
+
 # Internal planning notes (README covers the project)
 PROJECT_BLUEPRINT.md
 

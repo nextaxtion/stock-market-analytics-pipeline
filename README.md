@@ -69,7 +69,8 @@ The whole pipeline is orchestrated by an Airflow DAG running on GCP Cloud Compos
 | Transformations | dbt Core + dbt-bigquery |
 | Dashboard | Looker Studio |
 | Containerization | Docker |
-| Infrastructure | GCP (manually provisioned) |
+| Infrastructure as Code | Terraform |
+| Infrastructure | GCP |
 
 ---
 
@@ -126,7 +127,7 @@ For every ticker on every trading day, the Spark job computes:
 - Docker Desktop
 - Kaggle API token
 
-### 1. Clone the repo
+### 1. Clone the repo and set up Python
 ```bash
 git clone https://github.com/nextaxtion/stock-market-analytics-pipeline.git
 cd stock-market-analytics-pipeline
@@ -134,44 +135,56 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Set credentials
+### 2. Configure environment variables
 ```bash
-export GOOGLE_APPLICATION_CREDENTIALS=/path/to/your/service-account-key.json
+cp .env.example .env
+# Edit .env and fill in your GCP project ID, bucket name, and credentials path
+source .env
 ```
 
-### 3. Download and upload raw data
+### 3. Provision GCP infrastructure with Terraform
+```bash
+cd terraform
+terraform init
+terraform apply -var="project_id=$GCP_PROJECT_ID" -var="bucket_name=$GCS_BUCKET"
+cd ..
+```
+This creates the GCS bucket and BigQuery dataset.
+
+### 4. Download and upload raw data
 ```bash
 # Download from Kaggle
 kaggle datasets download -d jacksoncrow/stock-market-dataset --unzip -p data/
 
 # Upload to GCS
-gsutil -m cp -r data/stocks/ gs://YOUR_BUCKET/security-market-raw-data/
-gsutil -m cp -r data/etfs/   gs://YOUR_BUCKET/security-market-raw-data/
-gsutil cp data/symbols_valid_meta.csv gs://YOUR_BUCKET/security-market-raw-data/
+gsutil -m cp -r data/stocks/ gs://$GCS_BUCKET/security-market-raw-data/
+gsutil -m cp -r data/etfs/   gs://$GCS_BUCKET/security-market-raw-data/
+gsutil cp data/symbols_valid_meta.csv gs://$GCS_BUCKET/security-market-raw-data/
 ```
 
-### 4. Run Spark processing
+### 5. Run Spark processing
 ```bash
 python spark/process_stock_data.py --mode local
 ```
 
-### 5. Load to BigQuery
+### 6. Load to BigQuery
 ```bash
 python scripts/load_to_bigquery.py
 ```
 
-### 6. Run dbt transformations
+### 7. Run dbt transformations
 ```bash
 # Copy and fill in your credentials
 cp dbt/profiles.yml.example dbt/profiles.yml
 
-# Run with Docker
+# Install dbt packages, then run and test
 docker compose -f docker/docker-compose.yml build
+docker compose -f docker/docker-compose.yml run --rm dbt deps
 docker compose -f docker/docker-compose.yml run --rm dbt run
 docker compose -f docker/docker-compose.yml run --rm dbt test
 ```
 
-### 7. Run the full pipeline via Airflow
+### 8. Run the full pipeline via Airflow
 Deploy `airflow/dags/stock_market_dag.py` to your Cloud Composer environment and trigger the `stock_market_pipeline` DAG manually.
 
 ---
@@ -189,7 +202,8 @@ Deploy `airflow/dags/stock_market_dag.py` to your Cloud Composer environment and
 │   └── tests/             # Data quality tests (22 passing)
 ├── docker/                # Dockerfile + docker-compose for dbt
 ├── docs/                  # Architecture diagram, dashboard screenshot, data model
-└── terraform/             # GCP infrastructure (optional)
+├── terraform/             # GCP infrastructure as code (GCS bucket + BigQuery dataset)
+└── .env.example           # Environment variable template
 ```
 
 ---

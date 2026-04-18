@@ -56,14 +56,14 @@ from airflow.operators.python import PythonOperator
 # Configuration
 # ---------------------------------------------------------------------------
 
-GCS_BUCKET        = "dezoomcampstore"
+GCS_BUCKET        = os.environ.get("GCS_BUCKET", "dezoomcampstore")
 GCS_RAW_PATH      = f"gs://{GCS_BUCKET}/security-market-raw-data"
 GCS_PROCESSED     = f"gs://{GCS_BUCKET}/processed"
-BQ_PROJECT        = "dezoomcamp-486216"
-BQ_DATASET        = "dezoomcampds"
+BQ_PROJECT        = os.environ.get("GCP_PROJECT_ID", "dezoomcamp-486216")
+BQ_DATASET        = os.environ.get("BQ_DATASET", "dezoomcampds")
 KAGGLE_DATASET    = "jacksoncrow/stock-market-dataset"
 LOCAL_DATA_DIR    = "/tmp/stock_data"
-REPO_DIR          = "/home/nextaxtion/stock-market-analytics-pipeline"  # adjust for Composer
+REPO_DIR          = os.environ.get("REPO_DIR", "/opt/stock-market-analytics-pipeline")
 
 # ---------------------------------------------------------------------------
 # Default arguments

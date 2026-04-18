@@ -34,11 +34,12 @@ from pyspark.sql.window import Window
 # Configuration
 # ---------------------------------------------------------------------------
 
-GCS_BUCKET = "gs://dezoomcampstore"
+_BUCKET    = os.environ.get("GCS_BUCKET", "dezoomcampstore")
+GCS_BUCKET = f"gs://{_BUCKET}"
 RAW_BASE   = f"{GCS_BUCKET}/security-market-raw-data"
 PROC_BASE  = f"{GCS_BUCKET}/processed"
 
-LOCAL_DATA = os.path.expanduser("~/stock-market-analytics-pipeline/data")
+LOCAL_DATA = os.environ.get("LOCAL_DATA_DIR", os.path.join(os.path.dirname(__file__), "..", "data"))
 
 PRICE_SCHEMA = T.StructType([
     T.StructField("Date",      T.StringType(), True),

@@ -48,13 +48,14 @@ from google.cloud import bigquery
 # Configuration – single place to change if bucket or dataset names change
 # ---------------------------------------------------------------------------
 
-PROJECT_ID = "dezoomcamp-486216"
-DATASET_ID = "dezoomcampds"
-BQ_LOCATION = "us-central1"   # BigQuery dataset location (must match the dataset that was created)
+PROJECT_ID  = os.environ.get("GCP_PROJECT_ID", "dezoomcamp-486216")
+DATASET_ID  = os.environ.get("BQ_DATASET", "dezoomcampds")
+BQ_LOCATION = os.environ.get("BQ_LOCATION", "us-central1")  # must match dataset region
+_BUCKET     = os.environ.get("GCS_BUCKET", "dezoomcampstore")
 
 # GCS source paths
-GCS_PARQUET_URI = "gs://dezoomcampstore/processed/stock_prices.parquet/*.parquet"
-GCS_META_CSV_URI = "gs://dezoomcampstore/security-market-raw-data/symbols_valid_meta.csv"
+GCS_PARQUET_URI  = f"gs://{_BUCKET}/processed/stock_prices.parquet/*.parquet"
+GCS_META_CSV_URI = f"gs://{_BUCKET}/security-market-raw-data/symbols_valid_meta.csv"
 
 # BigQuery target table names
 TABLE_PRICES = "raw_daily_prices"
