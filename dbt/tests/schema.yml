@@ -138,8 +138,9 @@ models:
         tests:
           - not_null
           - relationships:
-              to: ref('dim_companies')
-              field: symbol
+              arguments:
+                to: ref('dim_companies')
+                field: symbol
               config:
                 severity: warn    # warn: some tickers may be in prices but not meta
 
@@ -204,5 +205,70 @@ models:
 
       - name: total_volume
         description: Total shares traded across all tickers this month
+        tests:
+          - not_null
+
+  - name: agg_yearly_performance
+    description: >
+      Annual performance metrics grouped by market category.
+      Powers the year-over-year sector comparison grouped bar chart.
+    columns:
+
+      - name: trade_year
+        description: 4-digit year (1962–2020)
+        tests:
+          - not_null
+
+      - name: market_category
+        description: Market segment
+        tests:
+          - not_null
+
+      - name: avg_daily_return
+        description: Mean daily return for all tickers in this category/year
+        tests:
+          - not_null
+
+  - name: agg_market_crash_analysis
+    description: >
+      Market behaviour during 4 major crash events — Black Monday, dot-com crash,
+      2008 financial crisis, and COVID crash. One row per event.
+    columns:
+
+      - name: event_name
+        description: Human-readable crash event label — primary key of this table
+        tests:
+          - not_null
+          - unique:
+              config:
+                severity: error
+
+      - name: avg_volatility
+        description: Mean 30-day volatility during the event period
+        tests:
+          - not_null
+
+  - name: agg_top_tickers_alltime
+    description: >
+      All-time performance ranking for individual stocks (ETFs excluded).
+      Filtered to tickers with at least 252 trading days of data.
+      Powers the top/bottom performers leaderboard tile.
+    columns:
+
+      - name: symbol
+        description: Ticker symbol — primary key of this table
+        tests:
+          - not_null
+          - unique:
+              config:
+                severity: error
+
+      - name: avg_daily_return
+        description: Mean daily return over the ticker's full trading history
+        tests:
+          - not_null
+
+      - name: trading_days
+        description: Number of distinct trading days in the dataset for this ticker
         tests:
           - not_null
