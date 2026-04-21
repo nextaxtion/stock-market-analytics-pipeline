@@ -1,0 +1,26 @@
+##############################################################################
+# Dockerfile.ingest — Kaggle download + GCS upload (Cloud Run Job)
+##############################################################################
+# Runs scripts/ingest_data.py:
+#   1. Downloads the stock-market-dataset from Kaggle using the kaggle Python lib
+#   2. Uploads stocks/, etfs/, symbols_valid_meta.csv to GCS
+#      (skips upload if files already exist to make the job idempotent)
+#
+# Auth: Cloud Run Workload Identity (no key file needed).
+# Kaggle credentials injected via Secret Manager env vars at runtime.
+##############################################################################
+
+FROM python:3.11-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir \
+    kaggle==1.6.* \
+    google-cloud-storage==2.*
+
+WORKDIR /app
+COPY scripts/ingest_data.py /app/
+
+CMD ["python", "ingest_data.py"]

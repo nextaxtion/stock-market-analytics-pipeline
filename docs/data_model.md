@@ -28,8 +28,9 @@ GCS (raw files)
 GCS Parquet ──► raw_daily_prices ──► stg_daily_prices (view) ──┐
                                                                  ├──► fact_daily_prices ──► agg_sector_performance
 GCS CSV ──────► raw_symbols_meta ──► stg_symbols_meta (view) ──┘         │                  agg_monthly_summary
-                                                │                         │
-                                                └──► dim_companies ◄──────┘ (FK: symbol)
+                                                │                         │                  agg_yearly_performance
+                                                └──► dim_companies ◄──────┘ (FK: symbol)     agg_market_crash_analysis
+                                                                                              agg_top_tickers_alltime
 ```
 
 ---
@@ -307,12 +308,17 @@ All tests defined in `dbt/tests/schema.yml` and run with `dbt test --profiles-di
 | not_null | agg_sector_performance | trade_month, market_category, ticker_count | error | ✅ PASS |
 | not_null + unique | agg_monthly_summary | trade_month | error | ✅ PASS |
 | not_null | agg_monthly_summary | avg_close, total_volume | error | ✅ PASS |
+| not_null | agg_yearly_performance | trade_year, market_category, avg_daily_return | error | ✅ PASS |
+| not_null + unique | agg_market_crash_analysis | event_name | error | ✅ PASS |
+| not_null | agg_market_crash_analysis | avg_volatility | error | ✅ PASS |
+| not_null + unique | agg_top_tickers_alltime | symbol | error | ✅ PASS |
+| not_null | agg_top_tickers_alltime | avg_daily_return, trading_days | error | ✅ PASS |
 
 > **WARN on FK relationship:** 21,518 price rows reference symbols that have no entry in `raw_symbols_meta`. These are historical tickers that were delisted before NASDAQ published the metadata file. They are valid price records — just missing company info. Set to `warn` (not `error`) intentionally.
 
 ---
 
-## Quick Reference — All 8 Tables
+## Quick Reference — All 11 Tables
 
 | Table | Layer | Type | Rows | Partitioned | Clustered |
 |---|---|---|---|---|---|
@@ -323,4 +329,7 @@ All tests defined in `dbt/tests/schema.yml` and run with `dbt test --profiles-di
 | `dim_companies` | Core | TABLE | 8,049 | — | — |
 | `fact_daily_prices` | Core | TABLE | 26.2M | trade_date (MONTH) | symbol |
 | `agg_sector_performance` | Aggregation | TABLE | 2,527 | — | — |
-| `agg_monthly_summary` | Aggregation | TABLE | 700 | — | — |
+| `agg_monthly_summary` | Aggregation | TABLE | ~720 | — | — |
+| `agg_yearly_performance` | Aggregation | TABLE | ~209 | — | — |
+| `agg_market_crash_analysis` | Aggregation | TABLE | 4 | — | — |
+| `agg_top_tickers_alltime` | Aggregation | TABLE | ~6,000 | — | — |

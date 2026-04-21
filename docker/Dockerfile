@@ -2,56 +2,47 @@
 # Dockerfile — dbt Core with BigQuery adapter
 ##############################################################################
 #
-# Why Docker for dbt?
-# -------------------
-# dbt Core is a Python package. Without Docker, every team member and every
-# CI environment would need to manually install the right Python version,
-# the right dbt version, and the right BigQuery adapter version.
+# Two usage modes:
 #
-# With Docker:
-#   - Zero setup: `docker compose run dbt run` works on any machine
-#   - Reproducible: the same image runs locally, in CI, and in Cloud Composer
-#   - Isolated: dbt's dependencies don't conflict with any other Python project
+#   1. Cloud Run Job (production):
+#      - Runs the built-in run_and_test.sh entrypoint: dbt run && dbt test
+#      - Authenticates via Cloud Run Workload Identity (Application Default Credentials)
+#      - profiles.yml baked into image uses method: oauth (no key file)
 #
-# Image choice: python:3.11-slim
-#   - slim = minimal base image (no X11, no extra tools) → smaller image
-#   - Python 3.11 = stable, compatible with current dbt-bigquery
+#   2. Local development:
+#      docker compose -f docker/docker-compose.yml run --rm dbt run
+#      docker compose -f docker/docker-compose.yml run --rm dbt test
 #
-# Package breakdown:
-#   dbt-core      : Core dbt engine (compiles SQL, manages the DAG, runs tests)
-#   dbt-bigquery  : BigQuery adapter (translates dbt's SQL to BigQuery dialect,
-#                   handles auth, partition/cluster config, etc.)
-#
+# Package versions pinned for reproducibility.
 ##############################################################################
 
 FROM python:3.11-slim
 
-# Install system dependencies needed by the BigQuery adapter
-# (google-cloud libraries use libssl for HTTPS connections)
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dbt-core and the BigQuery adapter
-# Pin versions for reproducibility — these are the latest stable versions
-# as of April 2026. Update when you need new dbt features.
 RUN pip install --no-cache-dir \
     dbt-core==1.8.* \
     dbt-bigquery==1.8.*
 
-# Set the working directory inside the container to /dbt
-# This is where the dbt project files will be mounted
 WORKDIR /dbt
 
-# Copy the dbt project files into the image
-# (docker-compose.yml also mounts ./dbt as a volume, so live edits are picked up)
+# Copy the dbt project files
 COPY dbt/ /dbt/
 
-# The entrypoint is the dbt CLI
-# This means: `docker run my-image run` → executes `dbt run`
-ENTRYPOINT ["dbt"]
+# Bake in a Cloud Run-compatible profiles.yml that uses Application Default
+# Credentials (Workload Identity). Values are injected via env vars at runtime.
+# The local dev profiles.yml is NOT copied here (it contains a keyfile path).
+COPY docker/dbt_profiles_cloudrun.yml /root/.dbt/profiles.yml
 
-# Default command if none is provided: run all models
-CMD ["run"]
+# Wrapper script: runs dbt run then dbt test in a single container execution.
+COPY docker/dbt_run_and_test.sh /usr/local/bin/dbt_run_and_test.sh
+RUN chmod +x /usr/local/bin/dbt_run_and_test.sh
+
+# Default: full run + test (used by Cloud Run Job).
+# Override CMD for local dev: docker compose run --rm dbt run
+ENTRYPOINT ["/bin/bash", "/usr/local/bin/dbt_run_and_test.sh"]
+CMD []

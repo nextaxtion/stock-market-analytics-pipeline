@@ -1,0 +1,116 @@
+##############################################################################
+# cloudbuild.yaml — Cloud Build pipeline to build and push all Docker images
+##############################################################################
+#
+# Run with:
+#   gcloud builds submit . --config docker/cloudbuild.yaml \
+#     --substitutions=_REGION=us-central1,_PROJECT=dezoomcamp-486216,_REPO=stock-pipeline
+#
+# Or via the deploy_gcp.sh script (recommended).
+#
+# Images built:
+#   stock-ingest   — Kaggle download + GCS upload
+#   stock-spark    — PySpark processing
+#   stock-bq-load  — BigQuery loader
+#   stock-dbt      — dbt run + test
+#
+# Uses Cloud Build's built-in Docker builder; no local Docker required.
+# Each step caches from the previous latest tag to speed up rebuilds.
+##############################################################################
+
+substitutions:
+  _REGION: us-central1
+  _PROJECT: dezoomcamp-486216
+  _REPO: stock-pipeline
+
+steps:
+
+  # ── stock-ingest ──────────────────────────────────────────────────────────
+  - name: gcr.io/cloud-builders/docker
+    id: build-ingest
+    args:
+      - build
+      - -f
+      - docker/Dockerfile.ingest
+      - -t
+      - ${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/stock-ingest:latest
+      - --cache-from
+      - ${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/stock-ingest:latest
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    id: push-ingest
+    waitFor: [build-ingest]
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/stock-ingest:latest
+
+  # ── stock-spark ───────────────────────────────────────────────────────────
+  - name: gcr.io/cloud-builders/docker
+    id: build-spark
+    args:
+      - build
+      - -f
+      - docker/Dockerfile.spark
+      - -t
+      - ${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/stock-spark:latest
+      - --cache-from
+      - ${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/stock-spark:latest
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    id: push-spark
+    waitFor: [build-spark]
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/stock-spark:latest
+
+  # ── stock-bq-load ─────────────────────────────────────────────────────────
+  - name: gcr.io/cloud-builders/docker
+    id: build-bq-load
+    args:
+      - build
+      - -f
+      - docker/Dockerfile.bq_load
+      - -t
+      - ${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/stock-bq-load:latest
+      - --cache-from
+      - ${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/stock-bq-load:latest
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    id: push-bq-load
+    waitFor: [build-bq-load]
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/stock-bq-load:latest
+
+  # ── stock-dbt ─────────────────────────────────────────────────────────────
+  - name: gcr.io/cloud-builders/docker
+    id: build-dbt
+    args:
+      - build
+      - -f
+      - docker/Dockerfile
+      - -t
+      - ${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/stock-dbt:latest
+      - --cache-from
+      - ${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/stock-dbt:latest
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    id: push-dbt
+    waitFor: [build-dbt]
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/stock-dbt:latest
+
+images:
+  - ${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/stock-ingest:latest
+  - ${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/stock-spark:latest
+  - ${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/stock-bq-load:latest
+  - ${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPO}/stock-dbt:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8

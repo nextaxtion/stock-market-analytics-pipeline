@@ -245,24 +245,12 @@ def main():
     )
     args = parser.parse_args()
 
-    # Validate credentials
-    # GOOGLE_APPLICATION_CREDENTIALS must point to the service account JSON file.
-    # The BigQuery client picks it up automatically from this env var.
-    creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-    if not creds_path:
-        print("ERROR: GOOGLE_APPLICATION_CREDENTIALS env var is not set.")
-        print("  Set it with: export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json")
-        raise SystemExit(1)
-    if not os.path.isfile(creds_path):
-        print(f"ERROR: Credentials file not found: {creds_path}")
-        raise SystemExit(1)
-
     print("=" * 60)
     print("Phase 2: BigQuery Load")
     print("=" * 60)
     print(f"  Project : {PROJECT_ID}")
     print(f"  Dataset : {DATASET_ID}")
-    print(f"  Credentials: {creds_path}")
+    print(f"  Credentials: Application Default Credentials (Cloud Run SA)")
 
     # Build BigQuery client
     # The client uses the service account key specified in the env var

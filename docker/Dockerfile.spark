@@ -1,0 +1,46 @@
+##############################################################################
+# Dockerfile.spark — PySpark stock data processor (Cloud Run Job)
+##############################################################################
+# Runs spark/process_stock_data.py --mode gcs:
+#   - Reads raw CSV files from gs://<bucket>/security-market-raw-data/
+#   - Computes metrics (daily_return, moving_avg_30/60, volatility_30, 52wk hi/lo)
+#   - Writes enriched Parquet to gs://<bucket>/processed/stock_prices.parquet/
+#
+# GCS connector: bundles gcs-connector-hadoop3-latest.jar so PySpark can
+# read/write gs:// paths via the Hadoop GCS file system plugin.
+#
+# Auth: Cloud Run Workload Identity (APPLICATION_DEFAULT credentials).
+# Resources: 4 vCPU / 16 GiB (set in Terraform Cloud Run Job definition).
+##############################################################################
+
+FROM python:3.11-slim-bookworm
+
+# Java is required by PySpark's JVM
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        openjdk-17-jdk-headless \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+# PySpark 3.5.x — stable, well-tested with the GCS connector.
+# google-auth is required for Application Default Credentials in the connector.
+RUN pip install --no-cache-dir \
+    pyspark==3.5.1 \
+    google-cloud-storage==2.* \
+    google-auth==2.*
+
+# Download GCS connector JAR (Hadoop 3 variant, latest stable release).
+# This enables gs:// paths in Spark without any extra runtime downloads.
+RUN mkdir -p /opt/spark/extra-jars && \
+    curl -fSL -o /opt/spark/extra-jars/gcs-connector-hadoop3-latest.jar \
+    "https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.jar"
+
+ENV GCS_CONNECTOR_JAR=/opt/spark/extra-jars/gcs-connector-hadoop3-latest.jar
+
+WORKDIR /app
+COPY spark/process_stock_data.py /app/
+
+CMD ["python", "process_stock_data.py", "--mode", "gcs"]

@@ -16,13 +16,20 @@ The interesting part isn't just the final charts — it's watching how trading v
 
 ## Dashboard
 
-![Stock Market Analytics Dashboard](docs/looker_dashboard.png)
+[![Stock Market Analytics Dashboard](docs/looker_dashboard.png)](https://lookerstudio.google.com/reporting/f0377f25-7e63-48a4-bfe0-96c6ed4a9e84/page/6guuF)
 
-**Tile 1 (Temporal):** Total trading volume across all tickers from 1962 to 2020 — the growth is dramatic, especially post-2000.
+[View live dashboard →](https://lookerstudio.google.com/reporting/f0377f25-7e63-48a4-bfe0-96c6ed4a9e84/page/6guuF)
 
-**Tile 2 (Categorical):** Average daily return by market category — shows which market segments have historically delivered better returns.
+The dashboard covers 7,777 tickers across 700 months of data (1962–2020) and includes four panels:
 
-[View live dashboard →](https://lookerstudio.google.com/reporting/f0377f25-7e63-48a4-bfe0-96c6ed4a9e84)
+| Panel | Type | Source table | What it shows |
+|---|---|---|---|
+| **Total Trading Volume (1962–2020)** | Line chart | `agg_monthly_summary` | Monthly total volume across all tickers — the post-internet explosion is clearly visible |
+| **Average Daily Return by Market Segment** | Bar chart | `agg_sector_performance` | Which NASDAQ market segments have historically returned more |
+| **Monthly Top Gainers & Losers** | Table | `agg_monthly_summary` | Per-month top gainer and loser tickers with avg daily return |
+| **Volatility (Risk) by Market Segment** | Bar chart | `agg_sector_performance` | Average 30-day rolling volatility per market segment |
+
+A date range filter control is connected to all temporal charts.
 
 ---
 
@@ -88,11 +95,14 @@ The whole pipeline is orchestrated by an Airflow DAG running on GCP Cloud Compos
 
 ## Data Model
 
-The pipeline produces 8 tables in BigQuery across 4 layers:
+The pipeline produces 11 tables in BigQuery across 4 layers:
 
 ```
 raw_daily_prices  ──►  stg_daily_prices  ──►  fact_daily_prices  ──►  agg_sector_performance
 raw_symbols_meta  ──►  stg_symbols_meta  ──►  dim_companies       ──►  agg_monthly_summary
+                                                                    ──►  agg_yearly_performance
+                                                                    ──►  agg_market_crash_analysis
+                                                                    ──►  agg_top_tickers_alltime
 ```
 
 **Why partitioned and clustered?**
@@ -210,11 +220,11 @@ Deploy `airflow/dags/stock_market_dag.py` to your Cloud Composer environment and
 
 ## Data quality
 
-dbt runs 23 automated tests on every pipeline run:
+dbt runs 33 automated tests on every pipeline run:
 - `not_null` checks on all key columns
 - `unique` checks on primary keys
 - `accepted_values` on market category codes
 - FK relationship check between fact and dimension tables
 
-Result: **22 PASS, 1 WARN** (the warning is expected — some historical tickers have price data but no metadata entry because they were delisted before the metadata snapshot was taken).
+Result: **32 PASS, 1 WARN** (the warning is expected — some historical tickers have price data but no metadata entry because they were delisted before the metadata snapshot was taken).
 

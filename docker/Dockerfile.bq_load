@@ -1,0 +1,20 @@
+##############################################################################
+# Dockerfile.bq_load — BigQuery loader (Cloud Run Job)
+##############################################################################
+# Runs scripts/load_to_bigquery.py:
+#   - Loads Parquet from GCS → BigQuery raw_daily_prices (partitioned + clustered)
+#   - Loads CSV from GCS   → BigQuery raw_symbols_meta
+#
+# Auth: Cloud Run Workload Identity (no key file needed).
+##############################################################################
+
+FROM python:3.11-slim
+
+RUN pip install --no-cache-dir \
+    google-cloud-bigquery==3.* \
+    google-cloud-storage==2.*
+
+WORKDIR /app
+COPY scripts/load_to_bigquery.py /app/
+
+CMD ["python", "load_to_bigquery.py"]

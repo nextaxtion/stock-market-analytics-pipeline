@@ -66,7 +66,7 @@ MARKET_CATEGORY_MAP = {
 # ---------------------------------------------------------------------------
 
 def build_spark() -> SparkSession:
-    return (
+    builder = (
         SparkSession.builder
         .appName("StockMarketProcessing")
         .config("spark.driver.memory", "10g")
@@ -74,8 +74,24 @@ def build_spark() -> SparkSession:
         .config("spark.sql.shuffle.partitions", "16")
         .config("spark.sql.adaptive.enabled", "true")
         .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
-        .getOrCreate()
     )
+
+    # When the GCS connector JAR is present (Cloud Run / GCS mode), configure
+    # the Hadoop GCS file system so Spark can read/write gs:// paths.
+    # APPLICATION_DEFAULT uses the Cloud Run Workload Identity — no key file.
+    gcs_jar = os.environ.get("GCS_CONNECTOR_JAR", "")
+    if gcs_jar and os.path.exists(gcs_jar):
+        builder = (
+            builder
+            .config("spark.jars", gcs_jar)
+            .config("spark.hadoop.fs.gs.impl",
+                    "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem")
+            .config("spark.hadoop.fs.AbstractFileSystem.gs.impl",
+                    "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS")
+            .config("spark.hadoop.google.cloud.auth.type", "APPLICATION_DEFAULT")
+        )
+
+    return builder.getOrCreate()
 
 
 # ---------------------------------------------------------------------------

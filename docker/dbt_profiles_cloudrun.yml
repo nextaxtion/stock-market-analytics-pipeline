@@ -1,0 +1,29 @@
+##############################################################################
+# dbt_profiles_cloudrun.yml
+# Baked into the Cloud Run dbt image at /root/.dbt/profiles.yml
+# Uses Application Default Credentials (Workload Identity) — no key file.
+# Values are injected at runtime via Cloud Run Job environment variables.
+##############################################################################
+
+stock_market:
+  target: prod
+
+  outputs:
+    prod:
+      type: bigquery
+      method: oauth                              # uses Application Default Credentials
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: "{{ env_var('BQ_DATASET') }}"
+      location: "{{ env_var('BQ_LOCATION', 'us-central1') }}"
+      threads: 4
+      timeout_seconds: 300
+
+    dev:
+      type: bigquery
+      method: service-account
+      project: dezoomcamp-486216
+      dataset: dezoomcampds
+      location: us-central1
+      threads: 4
+      timeout_seconds: 300
+      keyfile: /home/nextaxtion/deZoomcampWeek2/secrets/gcp-key.json
